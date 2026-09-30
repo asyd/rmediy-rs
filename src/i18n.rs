@@ -1,5 +1,5 @@
-//! Textes de l'interface : deux fichiers de langue (`locales/*.yml`) intégrés au binaire.
-//! Langue : `language:` du config.yaml, sinon `LC_ALL` / `LC_MESSAGES` / `LANG`, sinon anglais.
+//! Interface texts: two language files (`locales/*.yml`) embedded in the binary.
+//! Language: `language:` from config.yaml, else `LC_ALL` / `LC_MESSAGES` / `LANG`, else English.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,7 @@ static FR: OnceLock<Table> = OnceLock::new();
 static FRENCH: AtomicBool = AtomicBool::new(false);
 
 fn load(src: &str) -> Table {
-    serde_yaml::from_str(src).expect("fichier de langue invalide")
+    serde_yaml::from_str(src).expect("invalid language file")
 }
 fn en() -> &'static Table {
     EN.get_or_init(|| load(include_str!("../locales/en.yml")))
@@ -21,7 +21,7 @@ fn fr() -> &'static Table {
     FR.get_or_init(|| load(include_str!("../locales/fr.yml")))
 }
 
-/// Choisit la langue. `explicit` (ex. `"fr"`) l'emporte sur l'environnement.
+/// Selects the language. `explicit` (e.g. `"fr"`) takes precedence over the environment.
 pub fn init(explicit: Option<&str>) {
     let lang = explicit.map(str::to_owned).or_else(|| {
         ["LC_ALL", "LC_MESSAGES", "LANG"].iter().find_map(|k| std::env::var(k).ok().filter(|v| !v.is_empty()))
@@ -29,7 +29,7 @@ pub fn init(explicit: Option<&str>) {
     FRENCH.store(lang.is_some_and(|l| l.to_lowercase().starts_with("fr")), Ordering::Relaxed);
 }
 
-/// Texte traduit ; repli sur l'anglais, puis sur la clé elle-même. La chaîne vide reste vide.
+/// Translated text; falls back to English, then to the key itself. The empty string stays empty.
 pub fn t(key: &'static str) -> &'static str {
     if key.is_empty() {
         return "";
@@ -38,12 +38,12 @@ pub fn t(key: &'static str) -> &'static str {
     own.or_else(|| en().get(key)).map(String::as_str).unwrap_or(key)
 }
 
-/// Comme `t`, en remplaçant `{}` par `arg`.
+/// Like `t`, replacing `{}` with `arg`.
 pub fn tf(key: &'static str, arg: impl std::fmt::Display) -> String {
     t(key).replace("{}", &arg.to_string())
 }
 
-/// Libellé d'une info de statut (adresse virtuelle `ADDR_STATUS`).
+/// Label of a status info entry (virtual address `ADDR_STATUS`).
 pub fn status_label(index: u8) -> &'static str {
     match index {
         1 => t("status.1"),
@@ -102,7 +102,7 @@ mod tests {
             for prefix in ["\"desc.", "\"ui.", "\"err.", "\"midi."] {
                 for part in src.split(prefix).skip(1) {
                     let key = format!("{}{}", &prefix[1..], part.split('"').next().unwrap());
-                    assert!(en().contains_key(&key), "clé manquante dans {file}: {key}");
+                    assert!(en().contains_key(&key), "missing key in {file}: {key}");
                 }
             }
         }

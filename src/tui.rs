@@ -23,7 +23,7 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     let addrs = params::addresses(dev);
     let mut tab = 0usize;
-    let mut right = false; // EQ : côté droit (Dual EQ)
+    let mut right = false; // EQ: right side (Dual EQ)
     let mut list = ListState::default().with_selected(Some(0));
     let mut snap = Snapshot::new();
     let mut changes = state.changes.subscribe();
@@ -136,13 +136,13 @@ fn adjust(dev: Device, addr: u8, p: &Param, cur: Option<i32>, dir: i32, out: &Un
     let step = if log { (cur / 25).max(1) } else { p.step.max(1) };
     let mut new = cur + dir * step;
     if p.unit == params::Unit::Hz && new > 2047 {
-        new = (new + 5) / 10 * 10; // le protocole n'envoie que des multiples de 10 au-delà de 2047 Hz
+        new = (new + 5) / 10 * 10; // the protocol only sends multiples of 10 above 2047 Hz
     }
     let new = new.clamp(p.min, p.max);
     if new != cur {
         if let Some(m) = protocol::set_command(dev, addr, p.index, new) {
             let _ = out.send(m);
-            let _ = out.send(protocol::status_request(dev)); // le device répond avec le nouvel état
+            let _ = out.send(protocol::status_request(dev)); // the device answers with the new state
         }
     }
 }

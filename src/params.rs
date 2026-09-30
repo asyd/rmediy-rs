@@ -1,4 +1,4 @@
-//! Table statique des paramètres, portée de `device.go`.
+//! Static parameter table, ported from `device.go`.
 
 use crate::protocol::{Device, ADDR_DEVICE, ADDR_STATUS};
 use std::sync::OnceLock;
@@ -6,14 +6,14 @@ use std::sync::OnceLock;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
     Raw,
-    /// Dixièmes de dB (brut -100 = -10.0 dB).
+    /// Tenths of a dB (raw -100 = -10.0 dB).
     Db10,
-    /// Demi-dB (brut 14 = 7.0 dB), ex. Bass/Treble Gain du Loudness.
+    /// Half dB (raw 14 = 7.0 dB), e.g. Loudness Bass/Treble Gain.
     Db05,
-    /// Dixièmes (brut 9 = 0.9), ex. Q des filtres.
+    /// Tenths (raw 9 = 0.9), e.g. filter Q.
     Tenth,
     Hz,
-    /// Centièmes (brut 100 = 1.00).
+    /// Hundredths (raw 100 = 1.00).
     Percent,
 }
 
@@ -87,7 +87,7 @@ pub static DEVICE: &[Param] = &[
     o(p(37, "Lock UI", 0, 3, 0, 1), &["OFF", "Remote", "Keys", "Keys+Rem."]),
 ];
 
-/// Paramètres communs aux canaux 3 (Line), 6 (Phones 1/2) et 9 (Phones 3/4).
+/// Parameters shared by channels 3 (Line), 6 (Phones 1/2) and 9 (Phones 3/4).
 pub static CHANNEL: &[Param] = &[
     o(p(1, "Source", 0, 6, 0, 1), SOURCES),
     o(p(2, "Ref Level", 0, 3, 2, 1), &["+4 dBu", "+13 dBu", "+19 dBu", "+24 dBu"]),
@@ -123,8 +123,8 @@ const BAND_NAMES: [[&str; 4]; 5] = [
 ];
 const DEFAULT_FREQ: [i32; 5] = [100, 500, 1000, 5000, 10000];
 
-/// Table EQ : 5 bandes (indices 3 à 19) et, côté gauche seulement, Enable, Bass/Treble et « Load B/T ».
-/// `bt_gain` = gain Bass/Treble max en demi-dB (DAC : ±6 dB, Pro/SE : ±12 dB).
+/// EQ table: 5 bands (indexes 3 to 19) and, on the left side only, Enable, Bass/Treble and "Load B/T".
+/// `bt_gain` = maximum Bass/Treble gain in half dB (DAC: ±6 dB, Pro/SE: ±12 dB).
 fn build_eq(left: bool, bt_gain: i32) -> Vec<Param> {
     let mut v = Vec::new();
     if left {
@@ -159,7 +159,7 @@ fn build_eq(left: bool, bt_gain: i32) -> Vec<Param> {
     v
 }
 
-/// ADI-2 DAC : Bass/Treble limités à ±6 dB (manuel §8.4). Pro/SE : ±12 dB (tableau MIDI).
+/// ADI-2 DAC: Bass/Treble limited to ±6 dB (manual §8.4). Pro/SE: ±12 dB (MIDI table).
 fn eq_left(dev: Device) -> &'static [Param] {
     static DAC: OnceLock<Vec<Param>> = OnceLock::new();
     static PRO: OnceLock<Vec<Param>> = OnceLock::new();
@@ -175,13 +175,13 @@ fn eq_right() -> &'static [Param] {
     R.get_or_init(|| build_eq(false, 0))
 }
 
-/// Adresse EQ droite associée à une adresse EQ gauche (4→5, 7→8, 10→11).
+/// Right EQ address matching a left EQ address (4→5, 7→8, 10→11).
 pub fn eq_right_of(left: u8) -> Option<u8> {
     matches!(left, 4 | 7 | 10).then_some(left + 1)
 }
 
-/// Infos du message de statut (lecture seule), adresse virtuelle `ADDR_STATUS`.
-/// Valeurs brutes : la correspondance avec les libellés n'est pas documentée par RME.
+/// Status message info (read-only), virtual address `ADDR_STATUS`.
+/// Raw values: the mapping to labels is not documented by RME.
 pub static STATUS: &[Param] = &[
     p(1, "Active output (DAC)", 0, 3, 0, 0),
     p(2, "Device revision", 0, 3, 0, 0),
@@ -193,7 +193,7 @@ pub static STATUS: &[Param] = &[
     p(8, "Protocol revision (raw)", 0, 127, 0, 0),
 ];
 
-/// Courte description d'un paramètre (source : manuel ADI-2 DAC v1.8 et tableau MIDI RME).
+/// Short description of a parameter (source: ADI-2 DAC manual v1.8 and RME MIDI table).
 pub fn describe(addr: u8, name: &str) -> &'static str {
     crate::i18n::t(match (addr, name) {
         (3 | 6 | 9, "Source") => "desc.ch.source",
@@ -266,7 +266,7 @@ pub fn channel_name(addr: u8) -> &'static str {
     }
 }
 
-/// Paramètres éditables d'une adresse ; `None` si absente sur ce modèle.
+/// Editable parameters of an address; `None` if absent on this model.
 pub fn for_address(dev: Device, addr: u8) -> Option<&'static [Param]> {
     match addr {
         ADDR_DEVICE => Some(DEVICE),
@@ -280,7 +280,7 @@ pub fn for_address(dev: Device, addr: u8) -> Option<&'static [Param]> {
     }
 }
 
-/// Adresses affichables pour un modèle, dans l'ordre d'affichage.
+/// Displayable addresses for a model, in display order.
 pub fn addresses(dev: Device) -> Vec<u8> {
     [3u8, 4, 6, 7, 9, 10, ADDR_DEVICE].into_iter().filter(|&a| for_address(dev, a).is_some()).collect()
 }
@@ -295,7 +295,7 @@ mod tests {
     }
     #[test]
     fn bass_treble_gain_is_half_db() {
-        // Trame officielle RME : `1D 20 0E` = canal 3, index 21, valeur 14 = +7 dB.
+        // Official RME frame: `1D 20 0E` = channel 3, index 21, value 14 = +7 dB.
         let (a, i, v) = crate::protocol::parse_status(&[0x1D, 0x20, 0x0E])[0];
         assert_eq!((a, i, v), (3, 21, 14));
         let g = CHANNEL.iter().find(|p| p.index == 21).unwrap();

@@ -1,5 +1,5 @@
-//! État de l'appareil possédé par une seule tâche (pattern acteur) :
-//! pas de mutex, pas de race possible (cf. le crash « concurrent map writes » du Go).
+//! Device state owned by a single task (actor pattern):
+//! no mutex, no possible race (cf. the Go version's "concurrent map writes" crash).
 
 use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc, oneshot};

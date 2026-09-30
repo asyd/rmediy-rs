@@ -1,4 +1,4 @@
-//! Pont MIDI : entrée -> acteur d'état, file de sortie -> port MIDI.
+//! MIDI bridge: input -> state actor, output queue -> MIDI port.
 
 use crate::config::Config;
 use crate::protocol::{self, Device};
@@ -21,10 +21,10 @@ pub fn list_ports() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Garde les connexions midir en vie ; `out` reçoit les trames à envoyer.
+/// Keeps the midir connections alive; `out` receives the frames to send.
 pub struct Midi {
     pub out: mpsc::UnboundedSender<Vec<u8>>,
-    /// Nom du port d'entrée (contient le numéro de série USB).
+    /// Input port name (contains the USB serial number).
     pub port_name: String,
     _in_conn: midir::MidiInputConnection<()>,
 }
@@ -44,7 +44,7 @@ pub fn start(cfg: &Config, state: StateHandle) -> anyhow::Result<Midi> {
             move |_ts, msg, _| {
                 if let Some(triplets) = protocol::parse_incoming(dev, msg) {
                     for (channel, param, value) in triplets {
-                        // Callback hors runtime tokio : blocking_send est correct ici.
+                        // Callback runs outside the tokio runtime: blocking_send is correct here.
                         let _ = tx.blocking_send(Cmd::Set { channel, param, value });
                     }
                 }

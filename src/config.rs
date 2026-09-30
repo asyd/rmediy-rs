@@ -5,7 +5,7 @@ use std::path::Path;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    /// `en` ou `fr` ; par défaut la langue de l'environnement (`LANG`).
+    /// `en` or `fr`; defaults to the environment's language (`LANG`).
     #[serde(default)]
     pub language: Option<String>,
     pub device: DeviceCfg,

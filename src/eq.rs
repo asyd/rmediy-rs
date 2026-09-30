@@ -1,5 +1,5 @@
-//! Courbe de réponse de l'EQ paramétrique, calculée localement (le DAC ne l'envoie pas).
-//! Filtres bi-quad « Audio EQ Cookbook » (RBJ) ; l'appareil peut différer légèrement.
+//! Parametric EQ response curve, computed locally (the DAC does not send it).
+//! "Audio EQ Cookbook" (RBJ) biquad filters; the device may differ slightly.
 
 const FS: f64 = 48_000.0;
 
@@ -21,7 +21,7 @@ pub struct Band {
 }
 
 impl Band {
-    /// Réponse en amplitude (dB) à la fréquence `f`.
+    /// Amplitude response (dB) at frequency `f`.
     pub fn response_db(&self, f: f64) -> f64 {
         let a = 10f64.powf(self.gain_db / 40.0);
         let w0 = 2.0 * std::f64::consts::PI * self.freq / FS;
@@ -59,11 +59,11 @@ impl Band {
     }
 }
 
-/// Construit les bandes actives depuis les valeurs brutes. `eq` : bandes (adresse choisie),
-/// `bt` : Bass/Treble (toujours lus sur l'adresse gauche), `None` si B/T désactivé.
+/// Builds the active bands from the raw values. `eq`: bands (selected address),
+/// `bt`: Bass/Treble (always read from the left address), `None` if B/T is disabled.
 pub fn bands(eq: &dyn Fn(u8) -> Option<i32>, bt: Option<&dyn Fn(u8) -> Option<i32>>) -> Vec<Band> {
     let mut v = Vec::new();
-    // (index du type, index gain) ; les bandes 2 à 4 n'ont pas de type (Peak fixe).
+    // (type index, gain index); bands 2 to 4 have no type (fixed Peak).
     let layout: [(Option<u8>, u8); 5] = [(Some(3), 4), (None, 7), (None, 10), (None, 13), (Some(16), 17)];
     for (n, (type_idx, g)) in layout.into_iter().enumerate() {
         let (Some(gain), Some(freq), Some(q)) = (eq(g), eq(g + 1), eq(g + 2)) else { continue };
@@ -96,7 +96,7 @@ pub fn bands(eq: &dyn Fn(u8) -> Option<i32>, bt: Option<&dyn Fn(u8) -> Option<i3
     v
 }
 
-/// Points (log10 fréquence, dB) de 20 Hz à 20 kHz.
+/// Points (log10 frequency, dB) from 20 Hz to 20 kHz.
 pub fn curve(bands: &[Band]) -> Vec<(f64, f64)> {
     const N: usize = 160;
     (0..N)

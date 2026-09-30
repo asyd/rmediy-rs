@@ -1,21 +1,21 @@
-//! Protocole SysEx RME ADI-2, porté de `sysEx.go` / `bitman.go` / `rme.go`.
+//! RME ADI-2 SysEx protocol, ported from `sysEx.go` / `bitman.go` / `rme.go`.
 //!
-//! Trame midir (F0/F7 inclus) : `F0 00 20 0D [device] [cmd] [payload…] F7`.
-//! Payload de statut (cmd 1) : triplets de 3 octets `[adresse+index, …, valeur]`.
+//! midir frame (F0/F7 included): `F0 00 20 0D [device] [cmd] [payload…] F7`.
+//! Status payload (cmd 1): 3-byte triplets `[address+index, …, value]`.
 
 use serde::Deserialize;
 
 pub const HEADER: [u8; 4] = [0xF0, 0x00, 0x20, 0x0D];
 pub const SYSEX_END: u8 = 0xF7;
 
-/// Adresse du device global (paramètres non liés à un canal).
+/// Global device address (parameters not tied to a channel).
 pub const ADDR_DEVICE: u8 = 12;
-/// Adresse virtuelle : infos du message de statut (commande 7), en lecture seule.
+/// Virtual address: info from the status message (command 7), read-only.
 pub const ADDR_STATUS: u8 = 0x7F;
-/// EQ gauche (1, 4, 7, 10 = Input, Line, Phones 1/2, Phones 3/4) et droit (2, 5, 8, 11).
+/// Left EQ (1, 4, 7, 10 = Input, Line, Phones 1/2, Phones 3/4) and right EQ (2, 5, 8, 11).
 pub const EQ_ADDRESSES: [u8; 8] = [1, 2, 4, 5, 7, 8, 10, 11];
 
-/// Index EQ portant une fréquence : 11 bits + drapeau ×10 (bit 4 de l'octet 2).
+/// EQ index carrying a frequency: 11 bits + ×10 flag (bit 4 of byte 2).
 fn is_eq_freq(index: u8) -> bool {
     matches!(index, 5 | 8 | 11 | 14 | 18 | 22 | 25)
 }
@@ -55,23 +55,23 @@ impl Device {
             Device::ProSe => "ADI-2/4 Pro SE",
         }
     }
-    /// Le canal 9 (Phones 3/4) n'existe pas sur l'ADI-2 DAC de base.
+    /// Channel 9 (Phones 3/4) does not exist on the base ADI-2 DAC.
     pub fn has_phones34(self) -> bool {
         !matches!(self, Device::Dac)
     }
 }
 
-/// Une valeur décodée : (adresse, index, valeur).
+/// A decoded value: (address, index, value).
 pub type Triplet = (u8, u8, i32);
 
-/// Requête de statut complet.
+/// Full status request.
 pub fn status_request(dev: Device) -> Vec<u8> {
     let mut m = HEADER.to_vec();
     m.extend([dev.id(), 0x03, 0x09, SYSEX_END]);
     m
 }
 
-/// Commande « set » pour `(adresse, index, valeur)`. `None` si adresse/valeur non supportée.
+/// "Set" command for `(address, index, value)`. `None` if the address/value is unsupported.
 pub fn set_command(dev: Device, addr: u8, index: u8, value: i32) -> Option<Vec<u8>> {
     let body = match addr {
         ADDR_DEVICE => encode_device(index, value),
@@ -90,7 +90,7 @@ fn encode_channel(addr: u8, index: u8, value: i32) -> Option<[u8; 3]> {
     if addr > 15 || index > 31 || !(-2048..=2047).contains(&value) {
         return None;
     }
-    let v = value as i16 as u16; // complément à 2 sur 12 bits, masqué ci-dessous
+    let v = value as i16 as u16; // 12-bit two's complement, masked below
     Some([
         (addr << 3) | (index >> 2),
         ((index & 0x03) << 5) | ((v >> 7) & 0x1F) as u8,
@@ -106,7 +106,7 @@ fn encode_device(index: u8, value: i32) -> [u8; 3] {
     ]
 }
 
-/// Décode une trame entrante. Retourne les triplets si c'est un statut (cmd 1) pour `dev`.
+/// Decodes an incoming frame. Returns the triplets if it is a status (cmd 1) for `dev`.
 pub fn parse_incoming(dev: Device, msg: &[u8]) -> Option<Vec<Triplet>> {
     let inner = msg.strip_prefix(&HEADER)?.strip_suffix(&[SYSEX_END])?;
     let (&id, rest) = inner.split_first()?;
@@ -121,9 +121,9 @@ pub fn parse_incoming(dev: Device, msg: &[u8]) -> Option<Vec<Triplet>> {
     }
 }
 
-/// Message de statut (cmd 7), numéros d'octets du tableau RME moins 5 :
-/// [0] sorties actives/révision, [1..9] IOStatus (non documenté), [9] mode, [10] révision protocole.
-/// Exposé comme paramètres virtuels de l'adresse `ADDR_STATUS` (cf. `params::STATUS`).
+/// Status message (cmd 7), byte numbers of the RME table minus 5:
+/// [0] active outputs/revision, [1..9] IOStatus (undocumented), [9] mode, [10] protocol revision.
+/// Exposed as virtual parameters of address `ADDR_STATUS` (see `params::STATUS`).
 pub fn parse_device_status(p: &[u8]) -> Vec<Triplet> {
     if p.len() < 11 {
         return vec![];
@@ -148,12 +148,12 @@ pub fn parse_status(payload: &[u8]) -> Vec<Triplet> {
             let addr = (c[0] >> 3) & 0x0F;
             let generic_index = ((c[0] & 0x07) << 3) | ((c[1] >> 4) & 0x07);
             if generic_index == 0 {
-                return None; // le Go ignore aussi ce cas
+                return None; // the Go version also ignores this case
             }
             match addr {
                 3 | 6 | 9 => Some(decode_channel(c)),
                 ADDR_DEVICE => {
-                    // Décodage repris à l'identique du Go (parseParameterBytes).
+                    // Decoding kept identical to the Go version (parseParameterBytes).
                     let v = (((c[1] & 0x0F) as i32) << 4) | c[2] as i32;
                     Some((addr, generic_index, v))
                 }
@@ -184,7 +184,7 @@ fn decode_eq(c: &[u8]) -> Triplet {
         }
         (addr, index, v)
     } else {
-        // Gains (demi-dB), Q (dixièmes), types : 12 bits signés, bit 4 = bit de poids fort.
+        // Gains (half dB), Q (tenths), types: 12-bit signed, bit 4 = most significant bit.
         let mut v = (((c[1] & 0x1F) as i32) << 7) | c[2] as i32;
         if v > 2047 {
             v -= 4096;
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn eq_official_frames() {
-        // Trames d'exemple RME (ADI-2/4 Pro SE), adresse 1 = Input EQ gauche.
+        // RME example frames (ADI-2/4 Pro SE), address 1 = left Input EQ.
         assert_eq!(decode_eq(&[0x09, 0x20, 0x64]), (1, 5, 100)); // Band 1 Freq
         assert_eq!(decode_eq(&[0x09, 0x40, 0x63]), (1, 6, 99)); // Band 1 Q = 9.9
         assert_eq!(decode_eq(&[0x0A, 0x03, 0x74]), (1, 8, 500)); // Band 2 Freq
@@ -242,12 +242,12 @@ mod tests {
 
     #[test]
     fn device_status_official_frame() {
-        // Statut d'exemple RME : 11 30 7E 08 00 00 00 02 04 01 11 00
+        // RME example status: 11 30 7E 08 00 00 00 02 04 01 11 00
         let f = [0xF0, 0, 0x20, 0x0D, 0x73, 7, 0x11, 0x30, 0x7E, 8, 0, 0, 0, 2, 4, 1, 0x11, 0, 0xF7];
         let t = parse_incoming(Device::ProSe, &f).unwrap();
-        assert!(t.contains(&(ADDR_STATUS, 1, 1))); // sortie active
+        assert!(t.contains(&(ADDR_STATUS, 1, 1))); // active output
         assert!(t.contains(&(ADDR_STATUS, 5, 1))); // mode
-        assert!(t.contains(&(ADDR_STATUS, 8, 0x11))); // révision protocole (octet brut)
+        assert!(t.contains(&(ADDR_STATUS, 8, 0x11))); // protocol revision (raw byte)
     }
 
     #[test]
