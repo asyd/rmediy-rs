@@ -1,0 +1,18 @@
+[package]
+name = "rmediy-rs"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Terminal remote control for the RME ADI-2 DAC / Pro / Pro SE over MIDI (based on RMEdiy)"
+
+[dependencies]
+anyhow = "1.0.104"
+axum = { version = "0.8.9", optional = true }
+midir = "0.11.0"
+ratatui = "0.30.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_yaml = "0.9.34"
+tokio = { version = "1.53.1", features = ["full"] }
+
+[features]
+axum = ["dep:axum"]

@@ -1,0 +1,6 @@
+device:
+  id: 0x71            # 0x71=ADI-2 DAC  0x72=ADI-2 Pro  0x73=ADI-2/4 Pro SE
+  midi_port_in: 1     # index affiché par `rmediy --list-ports`
+  midi_port_out: 1
+sync:
+  interval: 10        # secondes entre deux requêtes de statut
