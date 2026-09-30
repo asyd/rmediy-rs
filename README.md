@@ -52,6 +52,7 @@ rmediy-rs /path/to/my.yaml
 ```
 
 ```yaml
+language: en        # optional: en or fr (default: taken from LANG / LC_ALL)
 device:
   id: 0x71            # 0x71 = ADI-2 DAC, 0x72 = ADI-2 Pro, 0x73 = ADI-2/4 Pro SE
   midi_port_in: 1     # index shown by `rmediy-rs --list-ports`
@@ -60,16 +61,18 @@ sync:
   interval: 10        # seconds between two status requests
 ```
 
+The interface is available in **English** (default) and **French**. The language is taken from `LC_ALL` / `LC_MESSAGES` / `LANG` when set to `fr…`, and can be forced with the optional `language:` key. Translations live in `locales/*.yml`; contributions for other languages are welcome.
+
 ### Choosing the MIDI ports
 
 `midi_port_in` and `midi_port_out` are **indexes**, not names, and they depend on what is plugged into your machine. List them first:
 
 ```console
 $ rmediy-rs --list-ports
-Entrées MIDI :
+MIDI inputs:
   0: Midi Through:Midi Through Port-0 14:0
   1: ADI-2 DAC (59920464):ADI-2 DAC (59920464) Port 1 32:0
-Sorties MIDI :
+MIDI outputs:
   0: Midi Through:Midi Through Port-0 14:0
   1: ADI-2 DAC (59920464):ADI-2 DAC (59920464) Port 1 32:0
 ```

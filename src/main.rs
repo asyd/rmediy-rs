@@ -1,5 +1,6 @@
 mod config;
 mod eq;
+mod i18n;
 mod midi;
 mod params;
 mod protocol;
@@ -10,11 +11,15 @@ use std::{path::PathBuf, time::Duration};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    i18n::init(None);
     let arg = std::env::args().nth(1);
     if arg.as_deref() == Some("--list-ports") {
         return midi::list_ports();
     }
     let cfg = config::Config::load(&PathBuf::from(arg.unwrap_or_else(|| "config.yaml".into())))?;
+    if let Some(lang) = cfg.language.as_deref() {
+        i18n::init(Some(lang));
+    }
     let state = state::spawn();
     let midi = midi::start(&cfg, state.clone())?;
     let _ = midi.out.send(protocol::status_request(cfg.device.id));

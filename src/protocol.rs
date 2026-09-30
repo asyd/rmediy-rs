@@ -35,7 +35,7 @@ impl TryFrom<u8> for Device {
             0x71 => Ok(Device::Dac),
             0x72 => Ok(Device::Pro),
             0x73 => Ok(Device::ProSe),
-            _ => Err(format!("device id invalide {v:#x} (0x71, 0x72 ou 0x73)")),
+            _ => Err(crate::i18n::tf("err.device_id", format!("{v:#x}"))),
         }
     }
 }

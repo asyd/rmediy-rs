@@ -8,7 +8,7 @@ use ratatui::symbols::Marker;
 use ratatui::text::Line;
 use ratatui::style::Color;
 use ratatui::widgets::{Axis, Block, Chart, Dataset, GraphType, List, ListItem, ListState, Paragraph, Tabs, Wrap};
-use crate::eq;
+use crate::{eq, i18n};
 use ratatui::DefaultTerminal;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
@@ -59,14 +59,14 @@ pub async fn run(
                 })
                 .collect();
             if addr == protocol::ADDR_DEVICE {
-                items.push(ListItem::new("── Infos (lecture seule) ──"));
-                items.push(ListItem::new(format!("{:<26} {port_name}", "Port MIDI")));
+                items.push(ListItem::new(i18n::t("ui.info_header")));
+                items.push(ListItem::new(format!("{:<26} {port_name}", i18n::t("ui.port"))));
                 for sp in params::STATUS {
                     let v = snap.get(&protocol::ADDR_STATUS).and_then(|m| m.get(&sp.index)).map(|v| v.to_string()).unwrap_or_else(|| "—".into());
-                    items.push(ListItem::new(format!("{:<26} {v}", sp.name)));
+                    items.push(ListItem::new(format!("{:<26} {v}", i18n::status_label(sp.index))));
                 }
-                items.push(ListItem::new("Firmware FPGA/DSP : absent du protocole MIDI"));
-                items.push(ListItem::new("  -> menu SETUP > Options > SW Version"));
+                items.push(ListItem::new(i18n::t("ui.fw_absent")));
+                items.push(ListItem::new(i18n::t("ui.fw_hint")));
             }
             let body = if is_eq {
                 let [chart_area, rest] = Layout::vertical([Constraint::Length(13), Constraint::Min(0)]).areas(body);
@@ -83,7 +83,7 @@ pub async fn run(
                 let yl = ["-15", "-10", "-5", "0", "+5", "+10", "+15"].map(Line::from);
                 f.render_widget(
                     Chart::new(vec![ds])
-                        .block(Block::bordered().title(if enabled { "Réponse EQ (calculée)" } else { "Réponse EQ (EQ désactivé)" }))
+                        .block(Block::bordered().title(if enabled { i18n::t("ui.eq_on") } else { i18n::t("ui.eq_off") }))
                         .x_axis(Axis::default().bounds([20f64.log10(), 20000f64.log10()]).labels(xl))
                         .y_axis(Axis::default().bounds([-15.0, 15.0]).labels(yl)),
                     chart_area,
@@ -98,8 +98,8 @@ pub async fn run(
                 &mut list,
             );
             let text = plist.get(list.selected().unwrap_or(0)).map(|p| params::describe(addr, p.name)).unwrap_or("");
-            f.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title("Description")), desc);
-            f.render_widget("←/→ valeur  ↑/↓ param  Tab onglet  s côté L/R (EQ)  r rafraîchir  q quitter", help);
+            f.render_widget(Paragraph::new(text).wrap(Wrap { trim: true }).block(Block::bordered().title(i18n::t("ui.description"))), desc);
+            f.render_widget(i18n::t("ui.help"), help);
         })?;
 
         tokio::select! {
