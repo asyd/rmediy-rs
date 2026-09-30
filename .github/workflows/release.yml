@@ -1,0 +1,78 @@
+name: Release
+
+# Publie une release GitHub quand on pousse un tag de version, par exemple : git tag v0.1.0 && git push --tags
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (Debian 12, amd64)
+    runs-on: ubuntu-latest
+    # Construit sur Debian 12 (glibc 2.36) pour rester compatible avec les distributions courantes.
+    container: rust:1-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Cargo.toml version $version" >&2
+            exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends libasound2-dev pkg-config
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Package
+        run: |
+          name="rmediy-rs-${GITHUB_REF_NAME}-linux-amd64"
+          mkdir "$name"
+          strip target/release/rmediy-rs
+          cp target/release/rmediy-rs LICENSE README.md config.yaml "$name/"
+          tar czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: |
+            rmediy-rs-*.tar.gz
+            rmediy-rs-*.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Linux amd64 build, compiled on Debian 12 (glibc 2.36). Requires the ALSA runtime library (\`libasound2\` on Debian/Ubuntu)." \
+            rmediy-rs-*.tar.gz rmediy-rs-*.tar.gz.sha256

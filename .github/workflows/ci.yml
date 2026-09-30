@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build & test (Debian 12, amd64)
+    runs-on: ubuntu-latest
+    # Debian 12 (glibc 2.36) : le binaire produit tourne sur Debian 12+, Ubuntu 22.04+, etc.
+    container: rust:1-bookworm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends libasound2-dev pkg-config
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (release)
+        run: cargo build --release --locked
